@@ -172,6 +172,18 @@ private fun ConfigScreen(
                     },
                 )
             }
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clickable { selectedConfig = selectedConfig.copy(groupByProject = !selectedConfig.groupByProject) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Group by project", modifier = Modifier.weight(1f))
+                Switch(
+                    checked = selectedConfig.groupByProject,
+                    onCheckedChange = { selectedConfig = selectedConfig.copy(groupByProject = it) },
+                )
+            }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionLabel("Smart Lists")
             ConfigOption(

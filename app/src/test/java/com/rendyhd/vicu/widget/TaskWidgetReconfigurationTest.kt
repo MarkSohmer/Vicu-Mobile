@@ -88,6 +88,21 @@ class TaskWidgetReconfigurationTest {
     }
 
     @Test
+    fun `changing grouping reloads the rows while keeping the selected view and actions`() {
+        val config = WidgetConfig(cachedState.viewType, cachedState.viewId, cachedState.viewName, groupByProject = true)
+        val state = cachedState.withConfig(config)
+        assertEquals(cachedState.copy(groupByProject = true, tasks = emptyList(), totalCount = 0, lastUpdated = ""), state)
+        assertEquals(config, Json.decodeFromString<WidgetConfig>(Json.encodeToString(WidgetConfig.serializer(), config)))
+
+        val snapshot = state.copy(tasks = listOf(WidgetTaskItem(id = 2L, title = "New task", projectId = 42L)))
+        val prefs = preferencesOf(
+            TaskWidgetStateDefinition.KEY_STATE to TaskWidgetStateDefinition.encodeState(snapshot),
+        )
+        assertEquals(snapshot, TaskWidgetStateDefinition.parseState(prefs))
+        assertTrue(snapshot.withConfig(config.copy(groupByProject = false)).tasks.isEmpty())
+    }
+
+    @Test
     fun `existing saved configs and widget states default to a colored background`() {
         val config = Json.decodeFromString<WidgetConfig>(
             """{"viewType":"PROJECT","viewId":"42","viewName":"Project"}""",
@@ -100,6 +115,8 @@ class TaskWidgetReconfigurationTest {
 
         assertFalse(config.transparentBackground)
         assertFalse(state.transparentBackground)
+        assertFalse(config.groupByProject)
+        assertFalse(state.groupByProject)
         assertEquals(listOf(WidgetTaskItem(id = 1L, title = "Task")), state.tasks)
         assertEquals(state, state.withConfig(config))
     }

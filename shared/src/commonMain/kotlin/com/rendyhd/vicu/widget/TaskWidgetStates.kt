@@ -88,7 +88,9 @@ class TaskWidgetStates(
         suspend fun build(config: WidgetConfig): TaskWidgetState {
             val projectUnavailable = config.viewType == WidgetViewType.PROJECT &&
                 config.viewId.toLongOrNull() !in activeProjectIds
-            val rows = query(config).filter { it.projectId in activeProjectIds }
+            val rows = query(config).filter {
+                it.projectId in activeProjectIds && (!config.groupByProject || !it.done)
+            }
             val addToProjectId = if (config.viewType == WidgetViewType.CUSTOM_LIST) {
                 customListStore.getById(config.viewId).first()?.filter?.addToProjectId?.takeIf { it in activeProjectIds } ?: 0L
             } else {
@@ -106,9 +108,11 @@ class TaskWidgetStates(
                         dueDate = row.dueDate,
                         priority = row.priority,
                         done = row.done,
+                        projectId = row.projectId,
                     )
                 },
                 totalCount = rows.size,
+                groupByProject = config.groupByProject,
                 lastUpdated = time.now().toString(),
                 smartAdd = smartAdd,
                 contextNav = contextNav,
@@ -121,6 +125,7 @@ class TaskWidgetStates(
         private suspend fun query(config: WidgetConfig): List<WidgetRow> {
             // The same boundary as the Today and Upcoming screens: the start of the local tomorrow.
             val startOfTomorrow = DueDates.startOfTomorrow(day.date, day.zone).toString()
+            val queryLimit = if (config.groupByProject) NO_LIMIT else MAX_WIDGET_TASKS
             return when (config.viewType) {
                 // The same list as the Today screen, the exact rule included (contract section 2).
                 WidgetViewType.TODAY -> taskDao
@@ -131,8 +136,8 @@ class TaskWidgetStates(
                     taskDao.getInboxTasksSync(inboxId, NO_LIMIT, includeDated = !behaviorPrefsStore.getPrefs().first().inboxExcludeDated),
                     inboxId,
                 )
-                WidgetViewType.UPCOMING -> taskDao.getUpcomingTasksSync(startOfTomorrow, MAX_WIDGET_TASKS).map { it.toRow() }
-                WidgetViewType.ANYTIME -> taskDao.getAnytimeTasksSync(inboxId, MAX_WIDGET_TASKS).map { it.toRow() }
+                WidgetViewType.UPCOMING -> taskDao.getUpcomingTasksSync(startOfTomorrow, queryLimit).map { it.toRow() }
+                WidgetViewType.ANYTIME -> taskDao.getAnytimeTasksSync(inboxId, queryLimit).map { it.toRow() }
                 WidgetViewType.PROJECT -> {
                     val projectId = config.viewId.toLongOrNull() ?: 0L
                     inProjectOrder(taskDao.getByProjectIdSync(projectId, NO_LIMIT), projectId)

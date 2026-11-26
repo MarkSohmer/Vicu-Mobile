@@ -1,0 +1,55 @@
+# Group tasks by project on Android
+
+Add or reconfigure the **Task List** home-screen widget. In **Appearance**, turn on
+**Group by project**, select a view, and save. The setting applies to that widget
+instance and defaults to off, including for widgets already on the home screen.
+At the shortest supported height the widget still shows its compact header. Make
+it taller to see the scrollable task list.
+
+The selected view supplies the filters and sort order. Grouped mode displays open
+tasks from active projects, including synced new projects and subprojects with
+matching tasks. Projects are identified by ID, so projects with the same name
+remain separate. Sections appear in order of first matching task, and tasks
+retain the selected view's order within each section. A section disappears when
+its last displayed task is completed. Existing widget refresh and sync paths
+pick up project and task changes.
+
+## Task limit
+
+The existing widget takes at most 20 tasks globally. Upcoming and Anytime also
+limit the original database query to 20. Grouped mode applies the display cap
+after filtering out completed tasks and inactive projects, and shows the full
+matching count when truncated. A project appears once one of its tasks falls
+within the first 20 eligible results. The count row opens the app using the
+widget's existing title navigation behavior.
+
+Keep the global cap for now. A per-project cap would allow the Android widget
+payload to grow with the number of projects. Launcher updates use Android
+RemoteViews and share a finite Binder transaction buffer. Any future increase
+should be tested on real launchers with long task and project names, many projects,
+and multiple widget instances. Use the app view for the full list.
+[Android Binder transaction limits](https://developer.android.com/reference/android/os/TransactionTooLargeException)
+
+## Development APKs
+
+Open the fork's **Actions** tab, select the successful **CI** push run for
+`feature/project-grouped-widget`, and download **vicu-dev-updateable** from
+**Artifacts**. Unzip the artifact and install `app-debug.apk`. The launcher label
+is **Vicu Dev** and the package is `com.rendyhd.vicu.debug`, which can be
+installed alongside official Vicu.
+
+Trusted pushes to the feature branch restore the same dedicated debug keystore
+from the fork's `DEBUG_KEYSTORE_BASE64` Actions secret. Keep the same secret and
+application ID for in-place updates, with a version code at least as high as the
+installed build. GitHub stores the secret encrypted and does not provide a way
+to download it. If replacing or migrating the signing setup, retain a protected
+copy of the original key if available. A different key requires reinstalling the
+development app. If a key must be generated, use the conventional Android debug
+keystore settings (JKS, alias `androiddebugkey`, store and key password `android`)
+and store only the Base64-encoded file in the Actions secret. The keystore itself
+is private and must stay out of Git.
+
+Runs without the secret use the runner's temporary key and upload
+**vicu-dev-temporary-signing** for one-off installs. Use the updateable artifact
+for ongoing testing. CI runs unit tests, lint, common Kotlin compilation, and
+the debug APK build before uploading the APK.

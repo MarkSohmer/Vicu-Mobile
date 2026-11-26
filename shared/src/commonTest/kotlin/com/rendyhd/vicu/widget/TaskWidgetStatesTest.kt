@@ -30,7 +30,7 @@ class TaskWidgetStatesTest {
     private val storage = InMemoryTokenStorage()
     private val todayBoundaries = mutableListOf<String>()
 
-    private val today = (1L..25L).map { TaskEntity(id = it, title = "Task $it", projectId = if (it == 25L) 9 else 1, dueDate = "2026-10-12T10:00:00Z") }
+    private var today = (1L..25L).map { TaskEntity(id = it, title = "Task $it", projectId = if (it == 25L) 9 else 1, dueDate = "2026-10-12T10:00:00Z") }
 
     private val taskDao = object : TaskDao by FakeTaskDao() {
         override suspend fun getTodayTasksSync(startOfToday: String, startOfTomorrow: String): List<TaskEntity> {
@@ -40,6 +40,11 @@ class TaskWidgetStatesTest {
 
         override suspend fun getByProjectIdSync(projectId: Long, limit: Int): List<TaskEntity> =
             today.filter { it.projectId == projectId }
+
+        override suspend fun getAnytimeTasksSync(inboxProjectId: Long, limit: Int): List<TaskEntity> =
+            today.filter { !it.done && it.projectId != inboxProjectId }.let {
+                if (limit < 0) it else it.take(limit)
+            }
     }
 
     private val projects = FakeProjectDao(
@@ -100,6 +105,51 @@ class TaskWidgetStatesTest {
         assertNull(state.error)
         // The boundary of the day it was built for: the start of the local tomorrow.
         assertEquals(listOf("2026-10-12T22:00:00Z"), todayBoundaries)
+    }
+
+    @Test
+    fun groupedWidgetsUseCurrentProjectIdsAndPreserveTheViewOrderWithinEachSection() = runTest {
+        val task = today.first()
+        today = listOf(
+            task,
+            task.copy(id = 2, projectId = 2),
+            task.copy(id = 3),
+            task.copy(id = 4, done = true),
+            task.copy(id = 5, projectId = 9),
+            task.copy(id = 6, projectId = 2),
+        )
+        projects.upsert(ProjectEntity(id = 3, title = "Empty"))
+        val config = WidgetConfig(groupByProject = true)
+        assertEquals(listOf(listOf(1L, 3L)), states.prepare(day).build(config).projectGroups().map { group ->
+            group.map { it.id }
+        })
+
+        projects.upsert(ProjectEntity(id = 2, title = "Home", parentProjectId = 1))
+        val state = states.prepare(day).build(config)
+        assertTrue(state.groupByProject)
+        assertEquals(listOf(1L, 2L, 3L, 6L), state.tasks.map { it.id })
+        assertEquals(listOf(listOf(1L, 3L), listOf(2L, 6L)), state.projectGroups().map { group ->
+            group.map { it.id }
+        })
+        assertEquals(listOf("Home", "Home"), state.projectGroups().map { it.first().projectName })
+        assertEquals(4, state.totalCount)
+        assertFalse(states.prepare(day).build(WidgetConfig()).groupByProject)
+
+        val afterCompletion = state.copy(tasks = state.tasks.filterNot { it.projectId == 2L })
+        assertEquals(listOf(1L), afterCompletion.projectGroups().map { it.first().projectId })
+    }
+
+    @Test
+    fun groupedAnytimeAppliesTheGlobalCapAfterFilteringAndReportsTheFullCount() = runTest {
+        val task = today.first()
+        today = (1L..22L).map { task.copy(id = it, projectId = 9) } +
+            (23L..47L).map { task.copy(id = it) }
+
+        val config = WidgetConfig(viewType = WidgetViewType.ANYTIME, groupByProject = true)
+        val state = states.prepare(day).build(config)
+        assertEquals(25, state.totalCount)
+        assertEquals((23L..42L).toList(), state.tasks.map { it.id })
+        assertTrue(states.prepare(day).build(config.copy(groupByProject = false)).tasks.isEmpty())
     }
 
     @Test

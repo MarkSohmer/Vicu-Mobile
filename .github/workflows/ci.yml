@@ -40,12 +40,35 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.1.12297006" "cmake;3.22.1" > /dev/null
 
+      - name: Restore development signing key
+        id: development-signing
+        if: github.event_name == 'push' && github.repository == 'MarkSohmer/Vicu-Mobile' && github.ref == 'refs/heads/feature/project-grouped-widget'
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::warning::DEBUG_KEYSTORE_BASE64 is unset. This APK uses a temporary debug key."
+            exit 0
+          fi
+          umask 077
+          mkdir -p "$HOME/.android"
+          printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
+          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > /dev/null
+          echo "stable=true" >> "$GITHUB_OUTPUT"
+
       # compileCommonMainKotlinMetadata compiles the shared code without the Android classpath, so
       # an Android or JVM-only API in commonMain fails here, on every push, without a Mac.
       - name: Test, lint, check common code and build the debug APK
         run: |
           chmod +x gradlew
           ./gradlew test lint :shared:compileCommonMainKotlinMetadata assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.development-signing.outputs.stable == 'true' && 'vicu-dev-updateable' || 'vicu-dev-temporary-signing' }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
       - name: Upload test and lint reports
         if: failure()

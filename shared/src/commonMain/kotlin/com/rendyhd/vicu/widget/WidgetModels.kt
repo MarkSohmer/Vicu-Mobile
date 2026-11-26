@@ -29,6 +29,7 @@ data class WidgetTaskItem(
     val dueDate: String = "",
     val priority: Int = 0,
     val done: Boolean = false,
+    val projectId: Long = 0L,
 )
 
 @Serializable
@@ -45,6 +46,7 @@ data class TaskWidgetState(
     val voiceButton: Boolean = true,
     val addToProjectId: Long = 0L, // for custom lists: which project the + button targets
     val transparentBackground: Boolean = false,
+    val groupByProject: Boolean = false,
 )
 
 @Serializable
@@ -53,19 +55,26 @@ data class WidgetConfig(
     val viewId: String = "",
     val viewName: String = "Today",
     val transparentBackground: Boolean = false,
+    val groupByProject: Boolean = false,
 )
 
-/** Keep cached rows for appearance edits; a different view starts in the loading state. */
+/** Sections follow the first appearance of each project in the selected view's task order. */
+fun TaskWidgetState.projectGroups(): Collection<List<WidgetTaskItem>> =
+    tasks.groupBy { it.projectId }.values
+
+/** Keep cached rows when an edit does not change which tasks qualify. */
 fun TaskWidgetState.withConfig(config: WidgetConfig): TaskWidgetState {
     val viewChanged = viewType != config.viewType || viewId != config.viewId
+    val reloadTasks = viewChanged || groupByProject != config.groupByProject
     return copy(
         viewType = config.viewType,
         viewId = config.viewId,
         viewName = config.viewName,
         transparentBackground = config.transparentBackground,
-        tasks = if (viewChanged) emptyList() else tasks,
-        totalCount = if (viewChanged) 0 else totalCount,
-        lastUpdated = if (viewChanged) "" else lastUpdated,
+        groupByProject = config.groupByProject,
+        tasks = if (reloadTasks) emptyList() else tasks,
+        totalCount = if (reloadTasks) 0 else totalCount,
+        lastUpdated = if (reloadTasks) "" else lastUpdated,
         error = if (viewChanged) null else error,
         addToProjectId = if (viewChanged) 0L else addToProjectId,
     )
