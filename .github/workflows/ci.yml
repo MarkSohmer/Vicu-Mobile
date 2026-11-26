@@ -65,14 +65,23 @@ jobs:
           chmod +x gradlew
           ./gradlew test lint :shared:compileCommonMainKotlinMetadata assembleDebug
 
-      - name: Verify development APK signature
+      - name: Sign and verify development APK
         if: steps.development-signing.outputs.stable == 'true'
         env:
           EXPECTED_CERT_SHA: ${{ steps.development-signing.outputs.cert_sha }}
         run: |
           apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
-          actual=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk)
-          grep -Fx "Signer #1 certificate SHA-256 digest: $EXPECTED_CERT_SHA" <<< "$actual"
+          apk=app/build/outputs/apk/debug/app-debug.apk
+          signed="$RUNNER_TEMP/vicu-dev-signed.apk"
+          "$apksigner" sign --ks "$VICU_DEV_KEYSTORE" --ks-key-alias androiddebugkey \
+            --ks-pass pass:android --key-pass pass:android --out "$signed" "$apk"
+          report=$("$apksigner" verify --print-certs "$signed")
+          actual=$(awk '/^Signer #1 certificate SHA-256 digest:/ {print tolower($NF)}' <<< "$report")
+          if [ "$actual" != "$EXPECTED_CERT_SHA" ]; then
+            echo "::error::APK certificate $actual differs from expected $EXPECTED_CERT_SHA."
+            exit 1
+          fi
+          mv "$signed" "$apk"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

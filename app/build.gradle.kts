@@ -70,13 +70,6 @@ android {
     // of the assets on first use (AndroidSpeechStorage).
     sourceSets.getByName("main").assets.directories.add("../native/speech/models")
 
-    providers.environmentVariable("VICU_DEV_KEYSTORE").orNull?.let { keyPath ->
-        signingConfigs.getByName("debug").apply {
-            storeFile = file(keyPath)
-            storeType = "JKS"
-        }
-    }
-
     if (keystorePropsFile.exists()) {
         signingConfigs {
             create("release") {
