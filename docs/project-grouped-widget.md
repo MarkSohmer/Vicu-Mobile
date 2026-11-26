@@ -11,6 +11,11 @@ your Inbox and tasks without a due date. If there are more than 20 tasks, scroll
 to the bottom and use **Next** or **Previous**. A project that spans pages repeats
 its heading on the next page.
 
+Tap **+** beside a project heading to start a task in that project. The main
+**+** in **All tasks** starts in your configured Inbox. In either case the
+folder chip in Quick Add shows the current destination. Tap it to choose
+another project before saving.
+
 The selected view supplies the filters and sort order. Grouped mode displays open
 tasks from active projects, including synced new projects and subprojects with
 matching tasks. Projects are identified by ID, so projects with the same name

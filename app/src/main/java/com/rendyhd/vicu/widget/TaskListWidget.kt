@@ -299,16 +299,7 @@ private fun ScrollableWidget(state: TaskWidgetState) {
                         items(tasks, itemId = { it.id }) { task ->
                             Column {
                                 if (task.id == tasks.first().id) {
-                                    Text(
-                                        text = task.projectName,
-                                        modifier = GlanceModifier.padding(top = 8.dp, bottom = 4.dp),
-                                        style = TextStyle(
-                                            color = GlanceTheme.colors.onSurface,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 14.sp,
-                                        ),
-                                        maxLines = 1,
-                                    )
+                                    WidgetProjectHeader(task)
                                 }
                                 WidgetTaskRow(task)
                             }
@@ -332,6 +323,40 @@ private fun ScrollableWidget(state: TaskWidgetState) {
                     item { WidgetPageControls(state) }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WidgetProjectHeader(task: WidgetTaskItem) {
+    Row(
+        modifier = GlanceModifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = task.projectName,
+            modifier = GlanceModifier.defaultWeight(),
+            style = TextStyle(
+                color = GlanceTheme.colors.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+            ),
+            maxLines = 1,
+        )
+        Box(
+            modifier = GlanceModifier.size(48.dp).clickable(
+                actionRunCallback<OpenTaskEntryAction>(
+                    actionParametersOf(OpenTaskEntryAction.DefaultProjectIdKey to task.projectId),
+                ),
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                provider = ImageProvider(R.drawable.ic_widget_add),
+                contentDescription = "Add task to ${task.projectName}",
+                modifier = GlanceModifier.size(32.dp),
+                colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurface),
+            )
         }
     }
 }
