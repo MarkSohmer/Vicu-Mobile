@@ -91,7 +91,17 @@ class TaskWidgetStates(
             val rows = query(config).filter {
                 it.projectId in activeProjectIds && (!config.groupByProject || !it.done)
             }
-            val visibleRows = if (config.viewType == WidgetViewType.ALL_TASKS) rows else rows.take(MAX_WIDGET_TASKS)
+            val preview = if (config.viewType == WidgetViewType.ALL_TASKS) rows else rows.take(MAX_WIDGET_TASKS)
+            val visibleRows = if (config.groupByProject) {
+                val byProject = preview.groupBy { it.projectId }
+                val order = config.taskOrder
+                config.orderedProjectIds(projectNames).flatMap { projectId ->
+                    val tasks = byProject[projectId].orEmpty()
+                    if (order == null) tasks else sortProjectTasks(tasks, order)
+                }
+            } else {
+                preview
+            }
             val addToProjectId = if (config.viewType == WidgetViewType.CUSTOM_LIST) {
                 customListStore.getById(config.viewId).first()?.filter?.addToProjectId?.takeIf { it in activeProjectIds } ?: 0L
             } else {
@@ -123,7 +133,7 @@ class TaskWidgetStates(
             )
         }
 
-        private suspend fun query(config: WidgetConfig): List<WidgetRow> {
+        private suspend fun query(config: WidgetConfig): List<Task> {
             // The same boundary as the Today and Upcoming screens: the start of the local tomorrow.
             val startOfTomorrow = DueDates.startOfTomorrow(day.date, day.zone).toString()
             val queryLimit = if (config.groupByProject) NO_LIMIT else MAX_WIDGET_TASKS
@@ -132,14 +142,14 @@ class TaskWidgetStates(
                 WidgetViewType.TODAY -> taskDao
                     .getTodayTasksSync(DueDates.startOfDay(day.date, day.zone).toString(), startOfTomorrow)
                     .filter { TimeBlocks.isOnToday(it.dueDate, it.startDate, it.endDate, day.date, day.zone) }
-                    .map { it.toRow() }
+                    .map { it.toWidgetTask() }
                 WidgetViewType.INBOX -> inProjectOrder(
                     taskDao.getInboxTasksSync(inboxId, NO_LIMIT, includeDated = !behaviorPrefsStore.getPrefs().first().inboxExcludeDated),
                     inboxId,
                 )
-                WidgetViewType.UPCOMING -> taskDao.getUpcomingTasksSync(startOfTomorrow, queryLimit).map { it.toRow() }
-                WidgetViewType.ANYTIME -> taskDao.getAnytimeTasksSync(inboxId, queryLimit).map { it.toRow() }
-                WidgetViewType.ALL_TASKS -> taskDao.getAllOpenTasks().first().map { it.toRow() }
+                WidgetViewType.UPCOMING -> taskDao.getUpcomingTasksSync(startOfTomorrow, queryLimit).map { it.toWidgetTask() }
+                WidgetViewType.ANYTIME -> taskDao.getAnytimeTasksSync(inboxId, queryLimit).map { it.toWidgetTask() }
+                WidgetViewType.ALL_TASKS -> taskDao.getAllOpenTasks().first().map { it.toWidgetTask() }
                 WidgetViewType.PROJECT -> {
                     val projectId = config.viewId.toLongOrNull() ?: 0L
                     inProjectOrder(taskDao.getByProjectIdSync(projectId, NO_LIMIT), projectId)
@@ -151,7 +161,6 @@ class TaskWidgetStates(
                     // The collaboration conditions read the members and signals stored on the device.
                     val context = if (customList.filter.hasCollaborationCondition) collaborationContext() else CustomListContext.NONE
                     taskRepository.customListTasks(customList.filter, day.date, day.zone, activeProjectIds, context, time.now())
-                        .map { it.toRow() }
                 }
             }
         }
@@ -161,25 +170,11 @@ class TaskWidgetStates(
      * Every open task of [projectId] in the order its screen shows them, as rows: the whole list is
      * read and sorted before the widget takes its first rows.
      */
-    private fun Batch.inProjectOrder(tasks: List<TaskEntity>, projectId: Long): List<WidgetRow> =
-        sortProjectTasks(tasks.map { it.toSortable() }, orderOf(projectId)).map { it.toRow() }
-
-    /** What the widget needs of a task, whichever query it came from. */
-    private class WidgetRow(
-        val id: Long,
-        val title: String,
-        val projectId: Long,
-        val dueDate: String,
-        val priority: Int,
-        val done: Boolean,
-    )
-
-    private fun TaskEntity.toRow() = WidgetRow(id, title, projectId, dueDate, priority, done)
-
-    private fun Task.toRow() = WidgetRow(id, title, projectId, dueDate, priority, done)
+    private fun Batch.inProjectOrder(tasks: List<TaskEntity>, projectId: Long): List<Task> =
+        sortProjectTasks(tasks.map { it.toWidgetTask() }, orderOf(projectId))
 
     /** What sorting a project's tasks reads of a stored task. */
-    private fun TaskEntity.toSortable() = Task(
+    private fun TaskEntity.toWidgetTask() = Task(
         id = id,
         title = title,
         done = done,

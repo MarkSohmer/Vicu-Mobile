@@ -10,6 +10,7 @@ import com.rendyhd.vicu.data.local.entity.TaskEntity
 import com.rendyhd.vicu.data.repository.FakeProjectDao
 import com.rendyhd.vicu.data.repository.FakeTaskDao
 import com.rendyhd.vicu.data.repository.InMemoryPreferencesDataStore
+import com.rendyhd.vicu.domain.model.TaskOrder
 import com.rendyhd.vicu.ui.FakeTaskRepository
 import com.rendyhd.vicu.util.ClockDay
 import com.rendyhd.vicu.util.CustomListContext
@@ -130,7 +131,7 @@ class TaskWidgetStatesTest {
         projects.upsert(ProjectEntity(id = 2, title = "Home", parentProjectId = 1))
         val state = states.prepare(day).build(config)
         assertTrue(state.groupByProject)
-        assertEquals(listOf(1L, 2L, 3L, 6L), state.tasks.map { it.id })
+        assertEquals(listOf(1L, 3L, 2L, 6L), state.tasks.map { it.id })
         assertEquals(listOf(listOf(1L, 3L), listOf(2L, 6L)), state.projectGroups().map { group ->
             group.map { it.id }
         })
@@ -140,6 +141,43 @@ class TaskWidgetStatesTest {
 
         val afterCompletion = state.copy(tasks = state.tasks.filterNot { it.projectId == 2L })
         assertEquals(listOf(1L), afterCompletion.projectGroups().map { it.first().projectId })
+    }
+
+    @Test
+    fun savedProjectOrderSurvivesRefreshAndSortsTasksOnlyWithinEachProject() = runTest {
+        projects.upsert(ProjectEntity(id = 2, title = "Other"))
+        projects.upsert(ProjectEntity(id = 3, title = "No matching tasks"))
+        val task = today.first()
+        today = listOf(
+            task.copy(title = "Zulu"),
+            task.copy(id = 2, projectId = 2, title = "Zulu"),
+            task.copy(id = 3, title = "Alpha"),
+            task.copy(id = 4, projectId = 2, title = "Alpha"),
+        )
+        val config = WidgetConfig(
+            viewType = WidgetViewType.ALL_TASKS,
+            groupByProject = true,
+            projectOrder = listOf(9L, 2L, 3L, 1L),
+            taskOrderKey = TaskOrder.TITLE.key,
+        )
+        fun TaskWidgetState.idsByProject() = projectGroups().map { group -> group.map { it.id } }
+        assertEquals(listOf(listOf(4L, 2L), listOf(3L, 1L)), states.prepare(day).build(config).idsByProject())
+
+        projects.upsert(ProjectEntity(id = 5, title = "A new project"))
+        today = listOf(task.copy(id = 5, projectId = 5)) + today.reversed()
+        val batch = states.prepare(day)
+        assertEquals(
+            listOf(listOf(4L, 2L), listOf(3L, 1L), listOf(5L)),
+            batch.build(config).idsByProject(),
+        )
+        assertEquals(
+            listOf(5L, 4L, 3L, 2L, 1L),
+            batch.build(config.copy(groupByProject = false)).tasks.map { it.id },
+        )
+        assertEquals(
+            listOf(5L, 1L, 2L),
+            batch.build(config.copy(projectOrder = emptyList())).projectGroups().map { it.first().projectId },
+        )
     }
 
     @Test

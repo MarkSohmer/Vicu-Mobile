@@ -6,6 +6,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,16 +19,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +55,7 @@ import com.rendyhd.vicu.data.local.CustomListStore
 import com.rendyhd.vicu.data.local.dao.ProjectDao
 import com.rendyhd.vicu.data.local.entity.ProjectEntity
 import com.rendyhd.vicu.domain.model.CustomList
+import com.rendyhd.vicu.domain.model.TaskOrder
 import com.rendyhd.vicu.ui.components.shared.SmartListIdentity
 import com.rendyhd.vicu.ui.theme.LocalVicuColors
 import com.rendyhd.vicu.ui.theme.VicuTheme
@@ -129,7 +137,7 @@ private fun ConfigScreen(
     LaunchedEffect(appWidgetId) {
         selectedConfig = WidgetConfigStore.getConfig(context, appWidgetId) ?: WidgetConfig()
         configLoaded = true
-        projects = projectDao.getAllSync().filter { it.parentProjectId == 0L }
+        projects = projectDao.getAllSync()
         customLists = customListStore.getAll().first()
     }
 
@@ -184,6 +192,13 @@ private fun ConfigScreen(
                     onCheckedChange = { selectedConfig = selectedConfig.copy(groupByProject = it) },
                 )
             }
+            if (selectedConfig.groupByProject) {
+                GroupOrderSettings(
+                    projects = projects,
+                    config = selectedConfig,
+                    onChange = { selectedConfig = it },
+                )
+            }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionLabel("Smart Lists")
             ConfigOption(
@@ -231,10 +246,11 @@ private fun ConfigScreen(
                 },
             )
 
-            if (projects.isNotEmpty()) {
+            val topLevelProjects = projects.filter { it.parentProjectId == 0L }
+            if (topLevelProjects.isNotEmpty()) {
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 SectionLabel("Projects")
-                projects.forEach { project ->
+                topLevelProjects.forEach { project ->
                     ConfigOption(
                         icon = Icons.Outlined.Folder,
                         label = project.title,
@@ -272,6 +288,79 @@ private fun ConfigScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun GroupOrderSettings(
+    projects: List<ProjectEntity>,
+    config: WidgetConfig,
+    onChange: (WidgetConfig) -> Unit,
+) {
+    var editProjects by remember { mutableStateOf(false) }
+    var taskMenuOpen by remember { mutableStateOf(false) }
+    val projectNames = projects.associate { it.id to it.title }
+    val orderedIds = config.orderedProjectIds(projectNames)
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Sort tasks within projects", modifier = Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { taskMenuOpen = true }) {
+                Text(config.taskOrder?.label ?: "View order")
+            }
+            DropdownMenu(expanded = taskMenuOpen, onDismissRequest = { taskMenuOpen = false }) {
+                (listOf(null) + TaskOrder.entries).forEach { order ->
+                    DropdownMenuItem(
+                        text = { Text(order?.label ?: "View order") },
+                        onClick = {
+                            onChange(config.copy(taskOrderKey = order?.key))
+                            taskMenuOpen = false
+                        },
+                    )
+                }
+            }
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("Project order", modifier = Modifier.weight(1f))
+        TextButton(
+            onClick = { editProjects = !editProjects },
+            enabled = orderedIds.isNotEmpty(),
+        ) { Text(if (editProjects) "Hide" else "Reorder") }
+    }
+    if (editProjects) {
+        fun move(from: Int, to: Int) {
+            val changed = orderedIds.toMutableList()
+            changed.add(to, changed.removeAt(from))
+            onChange(config.copy(projectOrder = changed))
+        }
+        orderedIds.forEachIndexed { index, projectId ->
+            val name = projectNames.getValue(projectId)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(name, modifier = Modifier.weight(1f))
+                IconButton(onClick = { move(index, index - 1) }, enabled = index > 0) {
+                    Icon(Icons.Outlined.ArrowUpward, contentDescription = "Move $name up")
+                }
+                IconButton(onClick = { move(index, index + 1) }, enabled = index < orderedIds.lastIndex) {
+                    Icon(Icons.Outlined.ArrowDownward, contentDescription = "Move $name down")
+                }
+            }
+        }
+        if (config.projectOrder.isNotEmpty()) {
+            TextButton(
+                onClick = { onChange(config.copy(projectOrder = emptyList())) },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            ) { Text("Reset to alphabetical") }
         }
     }
 }

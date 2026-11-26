@@ -14,13 +14,19 @@ Tap **+** beside a project heading to start a task in that project. The main
 folder chip in Quick Add shows the current destination. Tap it to choose
 another project before saving.
 
-The selected view supplies the filters and sort order. Grouped mode displays open
-tasks from active projects, including synced new projects and subprojects with
-matching tasks. Projects are identified by ID, so projects with the same name
-remain separate. Sections appear in order of first matching task, and tasks
-retain the selected view's order within each section. A section disappears when
-its last displayed task is completed. Existing widget refresh and sync paths
-pick up project and task changes.
+The selected view supplies the filters. Grouped mode displays open tasks from
+active projects, including subprojects. A section disappears when its last
+displayed task is completed.
+
+Under **Project order**, tap **Reorder**, use the arrows to arrange projects,
+and save. Sections are alphabetical until you save a custom order. Newly synced
+projects appear after your saved projects in alphabetical order and can be moved
+the next time you edit the widget. Projects with identical names remain separate.
+
+Use **Sort tasks within projects** to choose due date, priority, title,
+newest, oldest, or manual task order. **View order** keeps the selected view's
+ordering. In views with a preview limit, sorting rearranges the tasks already
+in the preview. Each widget has its own ordering settings.
 
 ## Task limit
 

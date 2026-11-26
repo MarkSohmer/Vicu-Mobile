@@ -120,4 +120,11 @@ class TaskWidgetReconfigurationTest {
         assertEquals(listOf(WidgetTaskItem(id = 1L, title = "Task")), state.tasks)
         assertEquals(state, state.withConfig(config))
     }
+
+    @Test
+    fun `widget ordering preferences survive a config round trip`() {
+        val config = WidgetConfig(groupByProject = true, projectOrder = listOf(42L, 7L), taskOrderKey = "priority")
+        val encoded = Json.encodeToString(WidgetConfig.serializer(), config)
+        assertEquals(config, Json.decodeFromString<WidgetConfig>(encoded))
+    }
 }

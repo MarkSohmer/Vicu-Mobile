@@ -1,6 +1,7 @@
 package com.rendyhd.vicu.widget
 
 import com.rendyhd.vicu.ui.navigation.ViewTarget
+import com.rendyhd.vicu.domain.model.TaskOrder
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -57,9 +58,18 @@ data class WidgetConfig(
     val viewName: String = "Today",
     val transparentBackground: Boolean = false,
     val groupByProject: Boolean = false,
+    val projectOrder: List<Long> = emptyList(),
+    val taskOrderKey: String? = null,
 )
 
-/** Sections follow the first appearance of each project in the selected view's task order. */
+/** Saved project IDs go first. Newly discovered projects follow in title order. */
+fun WidgetConfig.orderedProjectIds(projectNames: Map<Long, String>): List<Long> {
+    val alphabetical = projectNames.keys.sortedWith(compareBy({ projectNames.getValue(it).lowercase() }, { it }))
+    return (projectOrder + alphabetical).distinct().filter { it in projectNames }
+}
+
+val WidgetConfig.taskOrder: TaskOrder? get() = TaskOrder.fromKey(taskOrderKey)
+
 fun TaskWidgetState.projectGroups(): Collection<List<WidgetTaskItem>> =
     tasks.groupBy { it.projectId }.values
 
