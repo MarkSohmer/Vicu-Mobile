@@ -76,7 +76,8 @@ jobs:
           "$apksigner" sign --ks "$VICU_DEV_KEYSTORE" --ks-key-alias androiddebugkey \
             --ks-pass pass:android --key-pass pass:android --out "$signed" "$apk"
           report=$("$apksigner" verify --print-certs "$signed")
-          actual=$(awk '/^Signer #1 certificate SHA-256 digest:/ {print tolower($NF)}' <<< "$report")
+          printf '%s\n' "$report"
+          actual=$(awk '/certificate SHA-256 digest:/ && !/Source Stamp/ {print tolower($NF)}' <<< "$report" | sort -u)
           if [ "$actual" != "$EXPECTED_CERT_SHA" ]; then
             echo "::error::APK certificate $actual differs from expected $EXPECTED_CERT_SHA."
             exit 1
