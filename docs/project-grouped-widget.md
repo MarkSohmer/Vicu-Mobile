@@ -6,10 +6,8 @@ instance and defaults to off, including for widgets already on the home screen.
 At the shortest supported height the widget still shows its compact header. Make
 it taller to see the scrollable task list.
 
-Choose **All tasks** to see every incomplete task from active projects, including
-your Inbox and tasks without a due date. If there are more than 20 tasks, scroll
-to the bottom and use **Next** or **Previous**. A project that spans pages repeats
-its heading on the next page.
+Choose **All tasks** to see every incomplete task from active projects in one
+scrollable list, including your Inbox and tasks without a due date.
 
 Tap **+** beside a project heading to start a task in that project. The main
 **+** in **All tasks** starts in your configured Inbox. In either case the
@@ -26,18 +24,16 @@ pick up project and task changes.
 
 ## Task limit
 
-The existing widget takes at most 20 tasks globally. Upcoming and Anytime also
+The other widget views take at most 20 tasks globally. Upcoming and Anytime also
 limit the original database query to 20. Grouped mode applies the display cap
 after filtering out completed tasks and inactive projects, and shows the full
 matching count when truncated in the original views. In those views, a project appears once one of its tasks falls
 within the first 20 eligible results. The count row opens the app using the
 widget's existing title navigation behavior.
 
-Keep the global cap for now. A per-project cap would allow the Android widget
-payload to grow with the number of projects. Launcher updates use Android
-RemoteViews and share a finite Binder transaction buffer. Any future increase
-should be tested on real launchers with long task and project names, many projects,
-and multiple widget instances. Use the app view for the full list.
+**All tasks** does not apply this preview cap. Launcher updates use Android
+RemoteViews and share a finite Binder transaction buffer, so very large task
+lists should be tested on real launchers.
 [Android Binder transaction limits](https://developer.android.com/reference/android/os/TransactionTooLargeException)
 
 ## Development APKs

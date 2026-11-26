@@ -23,8 +23,8 @@ import kotlinx.coroutines.flow.first
 
 /**
  * What a task list widget shows for its configured view, from the data on the device: the same
- * queries as the list screens, at most [MAX_WIDGET_TASKS] rows with the total, tasks of archived
- * projects left out, and the project the + button adds to. Android's Glance widget and the iOS
+ * queries as the list screens, a capped preview except for Android's All tasks view, tasks of
+ * archived projects left out, and the project the + button adds to. Android's Glance widget and the iOS
  * widget snapshots are both built here.
  */
 class TaskWidgetStates(
@@ -85,15 +85,13 @@ class TaskWidgetStates(
         /** The order [projectId] uses: its own, a parent's, or the global one. */
         fun orderOf(projectId: Long): TaskOrder = orders.orderFor(projectId, parentOf)
 
-        suspend fun build(config: WidgetConfig, requestedPage: Int = 0): TaskWidgetState {
+        suspend fun build(config: WidgetConfig): TaskWidgetState {
             val projectUnavailable = config.viewType == WidgetViewType.PROJECT &&
                 config.viewId.toLongOrNull() !in activeProjectIds
             val rows = query(config).filter {
                 it.projectId in activeProjectIds && (!config.groupByProject || !it.done)
             }
-            val allTasks = config.viewType == WidgetViewType.ALL_TASKS
-            val page = if (allTasks) requestedPage.coerceIn(0, (rows.size - 1).coerceAtLeast(0) / MAX_WIDGET_TASKS) else 0
-            val orderedRows = if (allTasks && config.groupByProject) rows.groupBy { it.projectId }.values.flatten() else rows
+            val visibleRows = if (config.viewType == WidgetViewType.ALL_TASKS) rows else rows.take(MAX_WIDGET_TASKS)
             val addToProjectId = if (config.viewType == WidgetViewType.CUSTOM_LIST) {
                 customListStore.getById(config.viewId).first()?.filter?.addToProjectId?.takeIf { it in activeProjectIds } ?: 0L
             } else {
@@ -103,7 +101,7 @@ class TaskWidgetStates(
                 viewType = config.viewType,
                 viewId = config.viewId,
                 viewName = config.viewName,
-                tasks = orderedRows.drop(page * MAX_WIDGET_TASKS).take(MAX_WIDGET_TASKS).map { row ->
+                tasks = visibleRows.map { row ->
                     WidgetTaskItem(
                         id = row.id,
                         title = row.title,
@@ -116,7 +114,6 @@ class TaskWidgetStates(
                 },
                 totalCount = rows.size,
                 groupByProject = config.groupByProject,
-                page = page,
                 lastUpdated = time.now().toString(),
                 smartAdd = smartAdd,
                 contextNav = contextNav,

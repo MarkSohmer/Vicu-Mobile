@@ -3,7 +3,6 @@ package com.rendyhd.vicu.widget
 import android.content.Context
 import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -65,12 +64,9 @@ class TaskWidgetWorker(
 
                 val config = WidgetConfigStore.getConfig(applicationContext, appWidgetId)
                 Log.d(TAG, "Widget $appWidgetId config=$config (null means default TODAY)")
-                val requestedPage = if (config?.viewType == WidgetViewType.ALL_TASKS) {
-                    getAppWidgetState(applicationContext, TaskWidgetStateDefinition, glanceId)[TaskWidgetStateDefinition.KEY_PAGE] ?: 0
-                } else null
-                val state = batch.build(config ?: WidgetConfig(), requestedPage ?: 0)
+                val state = batch.build(config ?: WidgetConfig())
                     .copy(transparentBackground = config?.transparentBackground ?: false)
-                write(glanceId, state, requestedPage)
+                write(glanceId, state)
                 TaskListWidget().update(applicationContext, glanceId)
                 Log.d(TAG, "Widget $appWidgetId updated with ${state.tasks.size} of ${state.totalCount} tasks")
             }
@@ -82,17 +78,13 @@ class TaskWidgetWorker(
         }
     }
 
-    private suspend fun write(glanceId: androidx.glance.GlanceId, state: TaskWidgetState, requestedPage: Int? = null) {
+    private suspend fun write(glanceId: androidx.glance.GlanceId, state: TaskWidgetState) {
         updateAppWidgetState(
             applicationContext,
             TaskWidgetStateDefinition,
             glanceId,
         ) { prefs ->
-            if (requestedPage != null && requestedPage != (prefs[TaskWidgetStateDefinition.KEY_PAGE] ?: 0)) {
-                return@updateAppWidgetState prefs
-            }
             prefs.toMutablePreferences().apply {
-                this[TaskWidgetStateDefinition.KEY_PAGE] = state.page
                 this[TaskWidgetStateDefinition.KEY_STATE] = TaskWidgetStateDefinition.encodeState(state)
             }
         }

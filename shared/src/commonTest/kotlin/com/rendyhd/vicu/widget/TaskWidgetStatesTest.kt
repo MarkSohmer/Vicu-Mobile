@@ -156,7 +156,7 @@ class TaskWidgetStatesTest {
     }
 
     @Test
-    fun allTasksIncludesTheInboxAndUndatedTasksAndPaginatesByProject() = runTest {
+    fun allTasksIncludesTheInboxAndUndatedTasksBeyondThePreviewLimit() = runTest {
         storage.storeInboxProjectId(1)
         projects.upsert(ProjectEntity(id = 2, title = "New project"))
         val task = today.first()
@@ -166,14 +166,14 @@ class TaskWidgetStatesTest {
 
         val config = WidgetConfig(viewType = WidgetViewType.ALL_TASKS, groupByProject = true)
         val batch = states.prepare(day)
-        val first = batch.build(config)
-        assertEquals(44, first.totalCount)
-        assertEquals((1L..20L).toList(), first.tasks.map { it.id })
-        assertEquals(listOf(21L, 22L) + (101L..118L).toList(), batch.build(config, 1).tasks.map { it.id })
-        val last = batch.build(config, 999)
-        assertEquals(2, last.page)
-        assertEquals((119L..122L).toList(), last.tasks.map { it.id })
-        assertEquals(listOf(1L, 101L, 2L), batch.build(config.copy(groupByProject = false)).tasks.take(3).map { it.id })
+        val grouped = batch.build(config)
+        assertEquals(44, grouped.totalCount)
+        assertEquals(
+            listOf((1L..22L).toList(), (101L..122L).toList()),
+            grouped.projectGroups().map { tasks -> tasks.map { it.id } },
+        )
+        val flat = batch.build(config.copy(groupByProject = false))
+        assertEquals((1L..22L).flatMap { listOf(it, it + 100L) }, flat.tasks.map { it.id })
     }
 
     @Test

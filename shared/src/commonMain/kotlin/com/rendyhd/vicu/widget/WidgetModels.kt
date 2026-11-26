@@ -48,7 +48,6 @@ data class TaskWidgetState(
     val addToProjectId: Long = 0L, // for custom lists: which project the + button targets
     val transparentBackground: Boolean = false,
     val groupByProject: Boolean = false,
-    val page: Int = 0,
 )
 
 @Serializable
@@ -74,7 +73,6 @@ fun TaskWidgetState.withConfig(config: WidgetConfig): TaskWidgetState {
         viewName = config.viewName,
         transparentBackground = config.transparentBackground,
         groupByProject = config.groupByProject,
-        page = if (reloadTasks) 0 else page,
         tasks = if (reloadTasks) emptyList() else tasks,
         totalCount = if (reloadTasks) 0 else totalCount,
         lastUpdated = if (reloadTasks) "" else lastUpdated,

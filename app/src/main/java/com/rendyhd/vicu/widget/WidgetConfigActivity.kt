@@ -97,7 +97,6 @@ class WidgetConfigActivity : ComponentActivity() {
             updateAppWidgetState(this@WidgetConfigActivity, TaskWidgetStateDefinition, glanceId) { prefs ->
                 val state = TaskWidgetStateDefinition.parseState(prefs).withConfig(config)
                 prefs.toMutablePreferences().apply {
-                    this[TaskWidgetStateDefinition.KEY_PAGE] = state.page
                     this[TaskWidgetStateDefinition.KEY_STATE] = TaskWidgetStateDefinition.encodeState(state)
                 }
             }
