@@ -127,4 +127,25 @@ class TaskWidgetReconfigurationTest {
         val encoded = Json.encodeToString(WidgetConfig.serializer(), config)
         assertEquals(config, Json.decodeFromString<WidgetConfig>(encoded))
     }
+
+    @Test
+    fun `background refresh redraws only when the rendered snapshot changes`() {
+        val previous = TaskWidgetState(
+            viewType = WidgetViewType.ALL_TASKS,
+            groupByProject = true,
+            tasks = listOf(
+                WidgetTaskItem(id = 1L, title = "First", projectId = 10L),
+                WidgetTaskItem(id = 2L, title = "Second", projectId = 20L),
+            ),
+            totalCount = 2,
+            lastUpdated = "2026-11-26T12:00:00Z",
+        )
+        val refreshed = previous.copy(lastUpdated = "2026-11-26T12:15:00Z")
+
+        assertFalse(refreshed.needsRedrawFrom(previous))
+        assertTrue(refreshed.copy(tasks = previous.tasks.reversed()).needsRedrawFrom(previous))
+        assertTrue(refreshed.copy(tasks = previous.tasks.take(1), totalCount = 1).needsRedrawFrom(previous))
+        assertTrue(refreshed.copy(transparentBackground = true).needsRedrawFrom(previous))
+        assertTrue(TaskWidgetState(lastUpdated = refreshed.lastUpdated).needsRedrawFrom(TaskWidgetState()))
+    }
 }
