@@ -6,6 +6,11 @@ instance and defaults to off, including for widgets already on the home screen.
 At the shortest supported height the widget still shows its compact header. Make
 it taller to see the scrollable task list.
 
+Choose **All tasks** to see every incomplete task from active projects, including
+your Inbox and tasks without a due date. If there are more than 20 tasks, scroll
+to the bottom and use **Next** or **Previous**. A project that spans pages repeats
+its heading on the next page.
+
 The selected view supplies the filters and sort order. Grouped mode displays open
 tasks from active projects, including synced new projects and subprojects with
 matching tasks. Projects are identified by ID, so projects with the same name
@@ -19,7 +24,7 @@ pick up project and task changes.
 The existing widget takes at most 20 tasks globally. Upcoming and Anytime also
 limit the original database query to 20. Grouped mode applies the display cap
 after filtering out completed tasks and inactive projects, and shows the full
-matching count when truncated. A project appears once one of its tasks falls
+matching count when truncated in the original views. In those views, a project appears once one of its tasks falls
 within the first 20 eligible results. The count row opens the app using the
 widget's existing title navigation behavior.
 

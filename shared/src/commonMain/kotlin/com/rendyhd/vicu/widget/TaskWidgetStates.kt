@@ -85,12 +85,15 @@ class TaskWidgetStates(
         /** The order [projectId] uses: its own, a parent's, or the global one. */
         fun orderOf(projectId: Long): TaskOrder = orders.orderFor(projectId, parentOf)
 
-        suspend fun build(config: WidgetConfig): TaskWidgetState {
+        suspend fun build(config: WidgetConfig, requestedPage: Int = 0): TaskWidgetState {
             val projectUnavailable = config.viewType == WidgetViewType.PROJECT &&
                 config.viewId.toLongOrNull() !in activeProjectIds
             val rows = query(config).filter {
                 it.projectId in activeProjectIds && (!config.groupByProject || !it.done)
             }
+            val allTasks = config.viewType == WidgetViewType.ALL_TASKS
+            val page = if (allTasks) requestedPage.coerceIn(0, (rows.size - 1).coerceAtLeast(0) / MAX_WIDGET_TASKS) else 0
+            val orderedRows = if (allTasks && config.groupByProject) rows.groupBy { it.projectId }.values.flatten() else rows
             val addToProjectId = if (config.viewType == WidgetViewType.CUSTOM_LIST) {
                 customListStore.getById(config.viewId).first()?.filter?.addToProjectId?.takeIf { it in activeProjectIds } ?: 0L
             } else {
@@ -100,7 +103,7 @@ class TaskWidgetStates(
                 viewType = config.viewType,
                 viewId = config.viewId,
                 viewName = config.viewName,
-                tasks = rows.take(MAX_WIDGET_TASKS).map { row ->
+                tasks = orderedRows.drop(page * MAX_WIDGET_TASKS).take(MAX_WIDGET_TASKS).map { row ->
                     WidgetTaskItem(
                         id = row.id,
                         title = row.title,
@@ -113,6 +116,7 @@ class TaskWidgetStates(
                 },
                 totalCount = rows.size,
                 groupByProject = config.groupByProject,
+                page = page,
                 lastUpdated = time.now().toString(),
                 smartAdd = smartAdd,
                 contextNav = contextNav,
@@ -138,6 +142,7 @@ class TaskWidgetStates(
                 )
                 WidgetViewType.UPCOMING -> taskDao.getUpcomingTasksSync(startOfTomorrow, queryLimit).map { it.toRow() }
                 WidgetViewType.ANYTIME -> taskDao.getAnytimeTasksSync(inboxId, queryLimit).map { it.toRow() }
+                WidgetViewType.ALL_TASKS -> taskDao.getAllOpenTasks().first().map { it.toRow() }
                 WidgetViewType.PROJECT -> {
                     val projectId = config.viewId.toLongOrNull() ?: 0L
                     inProjectOrder(taskDao.getByProjectIdSync(projectId, NO_LIMIT), projectId)

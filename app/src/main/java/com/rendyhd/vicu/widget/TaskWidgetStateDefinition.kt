@@ -2,6 +2,7 @@ package com.rendyhd.vicu.widget
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.state.GlanceStateDefinition
 import kotlinx.serialization.json.Json
@@ -10,6 +11,7 @@ import java.io.File
 object TaskWidgetStateDefinition : GlanceStateDefinition<Preferences> {
 
     val KEY_STATE = stringPreferencesKey("task_widget_state")
+    val KEY_PAGE = intPreferencesKey("task_widget_page")
 
     private val json = Json { ignoreUnknownKeys = true }
 

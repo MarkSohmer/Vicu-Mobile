@@ -15,6 +15,7 @@ import com.rendyhd.vicu.util.ClockDay
 import com.rendyhd.vicu.util.CustomListContext
 import com.rendyhd.vicu.util.FixedTimeSource
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlin.test.Test
@@ -33,6 +34,8 @@ class TaskWidgetStatesTest {
     private var today = (1L..25L).map { TaskEntity(id = it, title = "Task $it", projectId = if (it == 25L) 9 else 1, dueDate = "2026-10-12T10:00:00Z") }
 
     private val taskDao = object : TaskDao by FakeTaskDao() {
+        override fun getAllOpenTasks() = flowOf(today.filter { !it.done })
+
         override suspend fun getTodayTasksSync(startOfToday: String, startOfTomorrow: String): List<TaskEntity> {
             todayBoundaries += startOfTomorrow
             return today
@@ -150,6 +153,27 @@ class TaskWidgetStatesTest {
         assertEquals(25, state.totalCount)
         assertEquals((23L..42L).toList(), state.tasks.map { it.id })
         assertTrue(states.prepare(day).build(config.copy(groupByProject = false)).tasks.isEmpty())
+    }
+
+    @Test
+    fun allTasksIncludesTheInboxAndUndatedTasksAndPaginatesByProject() = runTest {
+        storage.storeInboxProjectId(1)
+        projects.upsert(ProjectEntity(id = 2, title = "New project"))
+        val task = today.first()
+        today = (1L..22L).flatMap {
+            listOf(task.copy(id = it, dueDate = ""), task.copy(id = it + 100, projectId = 2))
+        } + listOf(task.copy(id = 50, done = true), task.copy(id = 51, projectId = 9))
+
+        val config = WidgetConfig(viewType = WidgetViewType.ALL_TASKS, groupByProject = true)
+        val batch = states.prepare(day)
+        val first = batch.build(config)
+        assertEquals(44, first.totalCount)
+        assertEquals((1L..20L).toList(), first.tasks.map { it.id })
+        assertEquals(listOf(21L, 22L) + (101L..118L).toList(), batch.build(config, 1).tasks.map { it.id })
+        val last = batch.build(config, 999)
+        assertEquals(2, last.page)
+        assertEquals((119L..122L).toList(), last.tasks.map { it.id })
+        assertEquals(listOf(1L, 101L, 2L), batch.build(config.copy(groupByProject = false)).tasks.take(3).map { it.id })
     }
 
     @Test

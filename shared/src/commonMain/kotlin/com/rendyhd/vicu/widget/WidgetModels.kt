@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 enum class WidgetViewType {
-    TODAY, INBOX, UPCOMING, ANYTIME, PROJECT, CUSTOM_LIST
+    TODAY, INBOX, UPCOMING, ANYTIME, PROJECT, CUSTOM_LIST, ALL_TASKS
 }
 
 /**
@@ -17,6 +17,7 @@ fun WidgetViewType.toViewTarget(viewId: String): ViewTarget? = when (this) {
     WidgetViewType.INBOX -> ViewTarget.Inbox
     WidgetViewType.UPCOMING -> ViewTarget.Upcoming
     WidgetViewType.ANYTIME -> ViewTarget.Anytime
+    WidgetViewType.ALL_TASKS -> null
     WidgetViewType.PROJECT -> viewId.toLongOrNull()?.let { ViewTarget.Project(it) }
     WidgetViewType.CUSTOM_LIST -> viewId.takeIf { it.isNotBlank() }?.let { ViewTarget.CustomList(it) }
 }
@@ -47,6 +48,7 @@ data class TaskWidgetState(
     val addToProjectId: Long = 0L, // for custom lists: which project the + button targets
     val transparentBackground: Boolean = false,
     val groupByProject: Boolean = false,
+    val page: Int = 0,
 )
 
 @Serializable
@@ -72,6 +74,7 @@ fun TaskWidgetState.withConfig(config: WidgetConfig): TaskWidgetState {
         viewName = config.viewName,
         transparentBackground = config.transparentBackground,
         groupByProject = config.groupByProject,
+        page = if (reloadTasks) 0 else page,
         tasks = if (reloadTasks) emptyList() else tasks,
         totalCount = if (reloadTasks) 0 else totalCount,
         lastUpdated = if (reloadTasks) "" else lastUpdated,

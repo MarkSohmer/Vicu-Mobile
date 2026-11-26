@@ -26,6 +26,7 @@ import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.ColorFilter
 import androidx.glance.Image
 import androidx.glance.ImageProvider
@@ -89,6 +90,25 @@ class TaskListWidget : GlanceAppWidget() {
                 }
             }
         }
+    }
+}
+
+class ChangeTaskWidgetPageAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val newPage = parameters[PageKey] ?: return
+        updateAppWidgetState(context, TaskWidgetStateDefinition, glanceId) { prefs ->
+            val state = TaskWidgetStateDefinition.parseState(prefs)
+            if (state.viewType != WidgetViewType.ALL_TASKS ||
+                newPage !in 0..(state.totalCount - 1).coerceAtLeast(0) / TaskWidgetStates.MAX_WIDGET_TASKS
+            ) return@updateAppWidgetState prefs
+            prefs.toMutablePreferences().apply { this[TaskWidgetStateDefinition.KEY_PAGE] = newPage }
+        }
+        val id = androidx.glance.appwidget.GlanceAppWidgetManager(context).getAppWidgetId(glanceId)
+        WidgetUpdateScheduler.enqueueImmediateUpdate(context, id)
+    }
+
+    companion object {
+        val PageKey = ActionParameters.Key<Int>("page")
     }
 }
 
@@ -294,7 +314,7 @@ private fun ScrollableWidget(state: TaskWidgetState) {
                             }
                         }
                     }
-                    if (state.totalCount > state.tasks.size) {
+                    if (state.viewType != WidgetViewType.ALL_TASKS && state.totalCount > state.tasks.size) {
                         item {
                             Text(
                                 text = "Showing ${state.tasks.size} of ${state.totalCount} tasks",
@@ -308,7 +328,44 @@ private fun ScrollableWidget(state: TaskWidgetState) {
                         WidgetTaskRow(task)
                     }
                 }
+                if (state.viewType == WidgetViewType.ALL_TASKS && state.totalCount > TaskWidgetStates.MAX_WIDGET_TASKS) {
+                    item { WidgetPageControls(state) }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun WidgetPageControls(state: TaskWidgetState) {
+    val pageCount = (state.totalCount - 1) / TaskWidgetStates.MAX_WIDGET_TASKS + 1
+    val style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 12.sp)
+    Row(
+        modifier = GlanceModifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (state.page > 0) {
+            Text(
+                text = "Previous",
+                modifier = GlanceModifier
+                    .clickable(actionRunCallback<ChangeTaskWidgetPageAction>(
+                        actionParametersOf(ChangeTaskWidgetPageAction.PageKey to state.page - 1),
+                    ))
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                style = style,
+            )
+        }
+        Text("Page ${state.page + 1} of $pageCount", modifier = GlanceModifier.defaultWeight(), style = style)
+        if (state.page + 1 < pageCount) {
+            Text(
+                text = "Next",
+                modifier = GlanceModifier
+                    .clickable(actionRunCallback<ChangeTaskWidgetPageAction>(
+                        actionParametersOf(ChangeTaskWidgetPageAction.PageKey to state.page + 1),
+                    ))
+                    .padding(vertical = 12.dp, horizontal = 4.dp),
+                style = style,
+            )
         }
     }
 }

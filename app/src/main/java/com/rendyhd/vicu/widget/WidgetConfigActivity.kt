@@ -97,6 +97,7 @@ class WidgetConfigActivity : ComponentActivity() {
             updateAppWidgetState(this@WidgetConfigActivity, TaskWidgetStateDefinition, glanceId) { prefs ->
                 val state = TaskWidgetStateDefinition.parseState(prefs).withConfig(config)
                 prefs.toMutablePreferences().apply {
+                    this[TaskWidgetStateDefinition.KEY_PAGE] = state.page
                     this[TaskWidgetStateDefinition.KEY_STATE] = TaskWidgetStateDefinition.encodeState(state)
                 }
             }
@@ -186,6 +187,14 @@ private fun ConfigScreen(
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
             SectionLabel("Smart Lists")
+            ConfigOption(
+                icon = Icons.AutoMirrored.Outlined.List,
+                label = "All tasks",
+                selected = selectedConfig.viewType == WidgetViewType.ALL_TASKS,
+                onClick = {
+                    selectedConfig = selectedConfig.copy(viewType = WidgetViewType.ALL_TASKS, viewId = "", viewName = "All tasks")
+                },
+            )
             ConfigOption(
                 icon = SmartListIdentity.TODAY.icon,
                 iconTint = SmartListIdentity.TODAY.color(identity),
