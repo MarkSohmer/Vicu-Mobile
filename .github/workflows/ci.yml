@@ -51,9 +51,11 @@ jobs:
             exit 0
           fi
           umask 077
-          mkdir -p "$HOME/.android"
-          printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$HOME/.android/debug.keystore"
-          keytool -list -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey > /dev/null
+          key_path="$RUNNER_TEMP/vicu-dev.jks"
+          printf '%s' "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$key_path"
+          cert_sha=$(keytool -exportcert -keystore "$key_path" -storepass android -alias androiddebugkey | sha256sum | cut -d ' ' -f 1)
+          echo "VICU_DEV_KEYSTORE=$key_path" >> "$GITHUB_ENV"
+          echo "cert_sha=$cert_sha" >> "$GITHUB_OUTPUT"
           echo "stable=true" >> "$GITHUB_OUTPUT"
 
       # compileCommonMainKotlinMetadata compiles the shared code without the Android classpath, so
@@ -62,6 +64,15 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew test lint :shared:compileCommonMainKotlinMetadata assembleDebug
+
+      - name: Verify development APK signature
+        if: steps.development-signing.outputs.stable == 'true'
+        env:
+          EXPECTED_CERT_SHA: ${{ steps.development-signing.outputs.cert_sha }}
+        run: |
+          apksigner=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)
+          actual=$("$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk)
+          grep -Fx "Signer #1 certificate SHA-256 digest: $EXPECTED_CERT_SHA" <<< "$actual"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
