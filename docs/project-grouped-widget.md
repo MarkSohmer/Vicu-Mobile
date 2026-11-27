@@ -65,3 +65,9 @@ Runs without the secret use the runner's temporary key and upload
 **vicu-dev-temporary-signing** for one-off installs. Use the updateable artifact
 for ongoing testing. CI runs unit tests, lint, common Kotlin compilation, and
 the debug APK build before uploading the APK.
+
+To distribute a verified build through Obtainium, publish a prerelease on the
+fork and attach the signed APK directly. Keep the Dev package and signing key
+and give each new Dev release a distinct version name and a higher Android
+version code. In Obtainium, add the fork's repository URL and enable
+**Include prereleases**.
